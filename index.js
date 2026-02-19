@@ -6,7 +6,13 @@ const AdmZip = require("adm-zip");
 const cors = require("cors");
 
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    origin: "*",
+    methods: ["POST"], // Tell the browser we only want POST
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 app.use(express.json());
 app.use(express.static("./"));
 
@@ -20,7 +26,8 @@ fs.ensureDirSync(DOWNLOADS_DIR);
 
 // Step 1 helper
 app.post("/save-id", (req, res) => {
-  fs.appendFileSync(STATUS_FILE, req.body.id + "\n");
+  const content = `${req.body.type},${req.body.id}`;
+  fs.appendFileSync(STATUS_FILE, content + "\n");
   res.send("Saved");
 });
 

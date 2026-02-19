@@ -1,6 +1,4 @@
 const SERVER_URL = "http://localhost:3000";
-const types = ["TypeA", "TypeB"];
-const eventDetails = ["Detail1", "Detail2"];
 
 function updateLog(msg, isError = false) {
   const win = document.getElementById("status-window");
@@ -9,28 +7,94 @@ function updateLog(msg, isError = false) {
   entry.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
   win.appendChild(entry);
   win.scrollTop = win.scrollHeight;
+  console.log(msg);
 }
+
+const eventDetails = ["SCOPE_EVENTS"];
+
+const authToken =
+  "na1.MTVERTNIL211cmFsaXRoYXJhbi52YXJhdGhhcmFqYW5AaWhnLmNvbTph+VkGp7A3NZGJgH3HaYLcCHsjzy1flFgz8wQDSyXtAS4u/1VEYBT3";
 
 // STEP 1: Export
 async function runStep1() {
   updateLog("Starting Step 1: Exporting jobs...");
-  for (const type of types) {
-    for (const detail of eventDetails) {
-      try {
-        // Example API call with Auth
-        const response = await axios.post(
-          "https://api.example.com/export",
-          { type, detail },
-          { auth: { username: "user", password: "password" } },
-        );
+  const url = "https://api.fullstory.com/segments/v1/exports";
+  try {
+    updateLog("Starting Step 1a: Exporting individual data...");
 
-        const jobId =
-          response.data.id || `JOB_${Math.floor(Math.random() * 1000)}`;
-        await axios.post(`${SERVER_URL}/save-id`, { id: jobId });
-        updateLog(`Export Created: ${jobId} (${type})`);
-      } catch (err) {
-        updateLog(`Step 1 Error: ${err.message}`, true);
-      }
+    const requetBody = {
+      segmentId: "Ulsl7U9qLZSx",
+      type: "TYPE_INDIVIDUAL",
+      format: "FORMAT_JSON",
+      timeRange: {
+        start: "2025-02-01T00:00:00Z",
+        end: "2026-02-19T00:00:00Z",
+      },
+      segmentTimeRange: {
+        start: "2025-02-01T00:00:00Z",
+        end: "2026-02-19T00:00:00Z",
+      },
+    };
+
+    const response = await axios.post(url, requetBody, {
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: `Basic ${authToken}`,
+      },
+    });
+
+    //updateLog(`response : ${JSON.stringify(response.data)}`);
+    const jobId = response.data.operationId;
+    updateLog(`response : ${jobId}`);
+    await axios.post(`${SERVER_URL}/save-id`, {
+      id: jobId,
+      type: "TYPE_INDIVIDUAL",
+    });
+    //updateLog(`Export Created: ${jobId}`);
+  } catch (err) {
+    updateLog(`Step 1 Error: ${err.message}`, true);
+  }
+
+  updateLog("Starting Step 1b: Exporting events data...");
+
+  for (const detail of eventDetails) {
+    const requetBody = {
+      segmentId: "Ulsl7U9qLZSx",
+      type: "TYPE_EVENT",
+      format: "FORMAT_JSON",
+      timeRange: {
+        start: "2025-02-01T00:00:00Z",
+        end: "2026-02-19T00:00:00Z",
+      },
+      segmentTimeRange: {
+        start: "2025-02-01T00:00:00Z",
+        end: "2026-02-19T00:00:00Z",
+      },
+      eventDetails: {
+        scope: detail,
+      },
+    };
+
+    try {
+      const response = await axios.post(url, requetBody, {
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Basic ${authToken}`,
+        },
+      });
+
+      //updateLog(`response : ${JSON.stringify(response.data)}`);
+      const jobId = response.data.operationId;
+      updateLog(`response : ${jobId}`);
+      await axios.post(`${SERVER_URL}/save-id`, {
+        id: jobId,
+        type: `TYPE_EVENT_${detail}`,
+      });
+      //updateLog(`Export Created: ${jobId}`);
+    } catch (err) {
+      updateLog(`Step 1 Error: ${err.message}`, true);
     }
   }
 }
