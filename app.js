@@ -25,7 +25,7 @@ async function runStep1() {
     const requetBody = {
       segmentId: "Ulsl7U9qLZSx",
       type: "TYPE_INDIVIDUAL",
-      format: "FORMAT_JSON",
+      format: "FORMAT_CSV",
       timeRange: {
         start: "2025-02-01T00:00:00Z",
         end: "2026-02-19T00:00:00Z",
@@ -62,7 +62,7 @@ async function runStep1() {
     const requetBody = {
       segmentId: "Ulsl7U9qLZSx",
       type: "TYPE_EVENT",
-      format: "FORMAT_JSON",
+      format: "FORMAT_CSV",
       timeRange: {
         start: "2025-02-01T00:00:00Z",
         end: "2026-02-19T00:00:00Z",

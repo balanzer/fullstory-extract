@@ -37,7 +37,14 @@ async function downloadAndExtractGzip(url) {
     .replace(/:/g, "-")
     .split(".")[0];
   const fileName = `${timestamp}_data.json`;
-  const outputPath = path.join(DOWNLOADS_DIR, "extract", fileName);
+  const dirPath = path.join(DOWNLOADS_DIR, "extract");
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+    console.log(`Directory created at: ${dirPath}`);
+  } else {
+    console.log("Directory already exists.");
+  }
+  const outputPath = path.join(dirPath, fileName);
 
   try {
     console.log(`Starting download: ${fileName}..., Locaton: ${url}`);
