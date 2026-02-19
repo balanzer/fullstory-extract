@@ -6,6 +6,7 @@ const AdmZip = require("adm-zip");
 const cors = require("cors");
 
 const app = express();
+
 app.use(
   cors({
     origin: "*",
@@ -29,6 +30,26 @@ app.post("/save-id", (req, res) => {
   const content = `${req.body.type},${req.body.id}`;
   fs.appendFileSync(STATUS_FILE, content + "\n");
   res.send("Saved");
+});
+
+app.post("/get-ids", (req, res) => {
+  try {
+    if (!fs.existsSync(STATUS_FILE)) {
+      return res.json({ ids: [] });
+    }
+
+    // Read the file, split by newline, and filter out any empty strings
+    const ids = fs
+      .readFileSync(STATUS_FILE, "utf-8")
+      .split("\n")
+      .map((id) => id.trim().split(",")[1]) // Get only the ID part
+      .filter(Boolean);
+
+    res.json({ ids });
+  } catch (error) {
+    console.error("Error reading status.txt:", error);
+    res.status(500).json({ error: "Could not read status file." });
+  }
 });
 
 // Step 2 Logic
@@ -86,4 +107,4 @@ app.post("/clear-all", async (req, res) => {
   res.send("Cleared");
 });
 
-app.listen(3000, () => console.log("Server running on http://localhost:3000"));
+app.listen(3010, () => console.log("Server running on http://localhost:3010"));

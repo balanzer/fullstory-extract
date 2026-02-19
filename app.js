@@ -1,4 +1,4 @@
-const SERVER_URL = "http://localhost:3000";
+const SERVER_URL = "http://localhost:3010";
 
 function updateLog(msg, isError = false) {
   const win = document.getElementById("status-window");
@@ -100,13 +100,70 @@ async function runStep1() {
 }
 
 // STEP 2: Check Status
+let pendingJobs = []; // To track jobs that aren't finished yet
+
 async function runStep2() {
-  updateLog("Starting Step 2: Checking status...");
+  updateLog("Starting Step 2: Continuous Status Check (Every 30s)...", "blue");
+
   try {
-    const res = await axios.post(`${SERVER_URL}/step-check-status`);
-    updateLog(res.data.message);
+    // 1. Fetch the list of IDs from your local server
+    const res = await axios.post(`${SERVER_URL}/get-ids`);
+    pendingJobs = res.data.ids; // Array of IDs from status.txt
+    console.log("Pending Jobs:", pendingJobs);
+    if (pendingJobs.length === 0) {
+      updateLog("No jobs found in status.txt to process.", "error");
+      return;
+    }
+
+    // 2. Start the interval
+    const pollInterval = setInterval(async () => {
+      updateLog(`Checking status for ${pendingJobs.length} pending jobs...`);
+
+      const finishedThisRound = [];
+
+      for (const jobId of pendingJobs) {
+        try {
+          // Call the FullStory Export Status API
+          const url = `https://api.fullstory.com/operations/v1/${jobId}`;
+          const requetBody = {};
+          const response = await axios.get(url, requetBody, {
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Authorization: `Basic ${authToken}`,
+            },
+          });
+
+          const status = response.status;
+          const completeStatus = response.data.estimatePctComplete;
+
+          updateLog(
+            `Job: ${jobId} | HTTP: ${status} | Progress: ${completeStatus}%`,
+          );
+
+          // 3. If complete, mark for removal from pending list
+          if (completeStatus === 100) {
+            finishedThisRound.push(jobId);
+          }
+        } catch (err) {
+          updateLog(`Error checking Job ${jobId}: ${err.message}`, "error");
+        }
+      }
+
+      // Remove finished jobs from the pending list
+      pendingJobs = pendingJobs.filter((id) => !finishedThisRound.includes(id));
+
+      // 4. Check if we are done
+      if (pendingJobs.length === 0) {
+        clearInterval(pollInterval);
+        updateLog(
+          "✅ All jobs processed successfully with 100% completion.",
+          "success",
+        );
+      }
+    }, 5000); // 30 Seconds
   } catch (err) {
-    updateLog(err.message, true);
+    updateLog("Failed to initiate Step 2: " + err.message, "error");
   }
 }
 
