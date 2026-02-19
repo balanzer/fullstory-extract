@@ -10,6 +10,25 @@ async function updateUI(message, className = "") {
   container.scrollTop = container.scrollHeight;
 }
 
+async function extractDOM() {
+  const url = document.getElementById("target-url").value;
+  if (!url) return alert("Please enter a URL");
+
+  updateUI(`Requesting DOM for: ${url}...`, "progress");
+
+  try {
+    const response = await fetch("http://localhost:3000/extract-dom", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+    const result = await response.text();
+    updateUI(result, "completed");
+  } catch (err) {
+    updateUI(`Extraction failed: ${err.message}`, "error");
+  }
+}
+
 async function startJob() {
   updateUI("Starting Export Job... Clearing log file.", "progress");
 

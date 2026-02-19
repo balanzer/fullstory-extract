@@ -48,3 +48,34 @@ app.post("/clear-downloads", async (req, res) => {
 });
 
 app.listen(3000, () => console.log("Server running on http://localhost:3000"));
+
+const DOM_DIR = path.join(__dirname, "dom_extractions");
+
+app.post("/extract-dom", async (req, res) => {
+  const { url } = req.body;
+
+  try {
+    // Create the folder if it doesn't exist
+    await fs.ensureDir(DOM_DIR);
+
+    // 1. Wait for 10 seconds (as requested)
+    console.log(`Waiting 10 seconds before fetching ${url}...`);
+    await new Promise((resolve) => setTimeout(resolve, 10000));
+
+    // 2. Fetch the content
+    // Note: For complex SPAs, you'd use Puppeteer here.
+    // This basic version gets the source HTML.
+    const response = await axios.get(url, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+    });
+
+    // 3. Save to dom_content.txt
+    const filePath = path.join(DOM_DIR, "dom_content.txt");
+    await fs.writeFile(filePath, response.data);
+
+    res.send(`Success! DOM saved to ${filePath}`);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(`Error: ${error.message}`);
+  }
+});
