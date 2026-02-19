@@ -10,7 +10,12 @@ function updateLog(msg, isError = false) {
   console.log(msg);
 }
 
-const eventDetails = ["SCOPE_EVENTS"];
+const eventDetails = [
+  "SCOPE_EVENTS",
+  "SCOPE_INDIVIDUALS",
+  "SCOPE_SESSIONS",
+  "SCOPE_PAGES",
+];
 
 const authToken =
   "na1.MTVERTNIL211cmFsaXRoYXJhbi52YXJhdGhhcmFqYW5AaWhnLmNvbTph+VkGp7A3NZGJgH3HaYLcCHsjzy1flFgz8wQDSyXtAS4u/1VEYBT3";
@@ -55,7 +60,7 @@ async function runStep1() {
   } catch (err) {
     updateLog(`Step 1 Error: ${err.message}`, true);
   }
-  return;
+
   updateLog("Starting Step 1b: Exporting events data...");
 
   for (const detail of eventDetails) {

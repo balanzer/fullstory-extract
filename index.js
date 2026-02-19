@@ -36,7 +36,7 @@ async function downloadAndExtractGzip(url) {
     .replace(/T/, "_")
     .replace(/:/g, "-")
     .split(".")[0];
-  const fileName = `${timestamp}_data.json`;
+  const fileName = `${timestamp}_data.csv`;
   const dirPath = path.join(DOWNLOADS_DIR, "extract");
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
