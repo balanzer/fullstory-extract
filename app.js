@@ -103,7 +103,7 @@ async function runStep1() {
 let pendingJobs = []; // To track jobs that aren't finished yet
 let failedJobs = [];
 async function runStep2() {
-  updateLog("Starting Step 2: Continuous Status Check (Every 30s)...", "blue");
+  updateLog("Starting Step 2: Continuous Status Check (Every 5s)...", "blue");
 
   try {
     // 1. Fetch the list of IDs from your local server
