@@ -101,7 +101,7 @@ async function runStep1() {
 
 // STEP 2: Check Status
 let pendingJobs = []; // To track jobs that aren't finished yet
-
+let failedJobs = [];
 async function runStep2() {
   updateLog("Starting Step 2: Continuous Status Check (Every 30s)...", "blue");
 
@@ -118,6 +118,7 @@ async function runStep2() {
     // 2. Start the interval
     const pollInterval = setInterval(async () => {
       updateLog(`Checking status for ${pendingJobs.length} pending jobs...`);
+      updateLog(`Skipping status for ${failedJobs.length} failed jobs...`);
 
       const finishedThisRound = [];
 
@@ -125,16 +126,18 @@ async function runStep2() {
         try {
           // Call the FullStory Export Status API
           const url = `https://api.fullstory.com/operations/v1/${jobId}`;
-          const requetBody = {};
-          const response = await axios.get(url, requetBody, {
+          const response = await axios.get(url, {
             headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
               Authorization: `Basic ${authToken}`,
             },
           });
 
           const status = response.status;
+          /*
+          console.log(
+            `Status for Job ${jobId} status: ${status}, response data: ${JSON.stringify(response.data, null, 2)}`,
+          ); */
+
           const completeStatus = response.data.estimatePctComplete;
 
           updateLog(
@@ -143,16 +146,25 @@ async function runStep2() {
 
           // 3. If complete, mark for removal from pending list
           if (completeStatus === 100) {
+            const searchExportId = response.data.results.searchExportId;
             finishedThisRound.push(jobId);
+            console.log(
+              `Job ${jobId} is complete. Search Export ID: ${searchExportId}`,
+            );
+            await axios.post(`${SERVER_URL}/save-export-id`, {
+              id: searchExportId,
+            });
           }
         } catch (err) {
           updateLog(`Error checking Job ${jobId}: ${err.message}`, "error");
+          failedJobs.push(jobId); // Track failed jobs
         }
       }
 
       // Remove finished jobs from the pending list
       pendingJobs = pendingJobs.filter((id) => !finishedThisRound.includes(id));
-
+      // Remove finished jobs from the failed list
+      pendingJobs = pendingJobs.filter((id) => !failedJobs.includes(id));
       // 4. Check if we are done
       if (pendingJobs.length === 0) {
         clearInterval(pollInterval);

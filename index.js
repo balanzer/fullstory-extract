@@ -19,6 +19,7 @@ app.use(express.static("./"));
 
 const DOWNLOADS_DIR = path.join(__dirname, "downloads");
 const STATUS_FILE = path.join(DOWNLOADS_DIR, "status.txt");
+const STATUS_EXPORT_FILE = path.join(DOWNLOADS_DIR, "status_export.txt");
 const URLS_FILE = path.join(DOWNLOADS_DIR, "urls.txt");
 const DOM_FILE = path.join(DOWNLOADS_DIR, "dom_content.txt");
 
@@ -29,6 +30,12 @@ fs.ensureDirSync(DOWNLOADS_DIR);
 app.post("/save-id", (req, res) => {
   const content = `${req.body.type},${req.body.id}`;
   fs.appendFileSync(STATUS_FILE, content + "\n");
+  res.send("Saved");
+});
+
+app.post("/save-export-id", (req, res) => {
+  const content = `${req.body.id}`;
+  fs.appendFileSync(STATUS_EXPORT_FILE, content + "\n");
   res.send("Saved");
 });
 
