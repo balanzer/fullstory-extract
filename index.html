@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>API Job Manager</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        padding: 20px;
+        line-height: 1.6;
+      }
+      #status-container {
+        border: 1px solid #ccc;
+        padding: 10px;
+        height: 300px;
+        overflow-y: scroll;
+        background: #f9f9f9;
+      }
+      .progress {
+        color: blue;
+      }
+      .completed {
+        color: green;
+        font-weight: bold;
+      }
+      .error {
+        color: red;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>API Export Manager</h1>
+    <button onclick="startJob()">Start Export Job</button>
+    <button
+      onclick="clearDownloads()"
+      style="background: #ff4444; color: white"
+    >
+      Clear Downloads Folder
+    </button>
+
+    <h3>Live Updates:</h3>
+    <div id="status-container"></div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

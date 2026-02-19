@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Downloaded API Data
+downloads/
+dom_extractions/
+
+# Status and Log files
+status.txt
+*.log
+
+# Environment variables
+.env
+
+# OS generated files
+.DS_Store
+Thumbs.db
