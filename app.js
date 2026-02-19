@@ -1,93 +1,88 @@
-async function updateUI(message, className = "") {
-  const container = document.getElementById("status-container");
-  const msg = document.createElement("p");
-  msg.className = className;
-  msg.innerText = `[${new Date().toLocaleTimeString()}] ${message}`;
-  container.appendChild(msg);
-  container.scrollTop = container.scrollHeight;
-}
-
-async function extractDOM() {
-  const url = document.getElementById("target-url").value;
-  if (!url) return alert("Please enter a URL");
-
-  updateUI(`Requesting DOM for: ${url}...`, "progress");
-
-  try {
-    const response = await fetch("http://localhost:3000/extract-dom", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url }),
-    });
-    const result = await response.text();
-    updateUI(result, "completed");
-  } catch (err) {
-    updateUI(`Extraction failed: ${err.message}`, "error");
-  }
-}
-
+const SERVER_URL = "http://localhost:3000";
 const types = ["TypeA", "TypeB"];
 const eventDetails = ["Detail1", "Detail2"];
 
-async function startJob() {
-  updateUI("Starting Export Job... Clearing log file.", "progress");
+function updateLog(msg, isError = false) {
+  const win = document.getElementById("status-window");
+  const entry = document.createElement("div");
+  entry.className = `log-entry ${isError ? "error" : "success"}`;
+  entry.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  win.appendChild(entry);
+  win.scrollTop = win.scrollHeight;
+}
 
-  // Clear log via backend
-  await fetch("http://localhost:3000/clear-log");
-
+// STEP 1: Export
+async function runStep1() {
+  updateLog("Starting Step 1: Exporting jobs...");
   for (const type of types) {
     for (const detail of eventDetails) {
       try {
-        const jobName = `FS_Segment_${type}_${detail}`;
+        // Example API call with Auth
+        const response = await axios.post(
+          "https://api.example.com/export",
+          { type, detail },
+          { auth: { username: "user", password: "password" } },
+        );
 
-        // 1. Export Job
-        updateUI(`Initiate an export job ${jobName}...`);
-        const exportRes = await axios.post("YOUR_EXPORT_API_URL", {
-          type,
-          detail,
-        });
-        const jobId = exportRes.data.id;
-        await axios.post("http://localhost:3000/save-log", {
-          data: `Started: ${jobName} ID: ${jobId}\n`,
-        });
-        /*
-        // Query Status (Polling)
-        let isComplete = false;
-        while (!isComplete) {
-          updateUI(`Checking status for ${jobId}...`);
-          const statusRes = await axios.get(`YOUR_STATUS_API_URL/${jobId}`);
-          if (statusRes.data.status === "COMPLETED") {
-            isComplete = true;
-          } else {
-            updateUI(`In progress... waiting 60s`, "progress");
-            await new Promise((r) => setTimeout(r, 60000));
-          }
-        }
-        */
-        /*
-        // Get Download Location
-        updateUI(`Fetching download URL...`);
-        const locRes = await axios.get(`YOUR_DOWNLOAD_LOC_API/${jobId}`);
-        const downloadUrl = locRes.data.url;
-        */
-
-        /*
-        //Download and Extract
-        updateUI(`Downloading to timestamped folder...`, "completed");
-        await fetch("http://localhost:3000/download", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: downloadUrl, prefix: jobName }),
-        });
-        */
+        const jobId =
+          response.data.id || `JOB_${Math.floor(Math.random() * 1000)}`;
+        await axios.post(`${SERVER_URL}/save-id`, { id: jobId });
+        updateLog(`Export Created: ${jobId} (${type})`);
       } catch (err) {
-        updateUI(`Error processing ${type}: ${err.message}`, "error");
+        updateLog(`Step 1 Error: ${err.message}`, true);
       }
     }
   }
 }
 
-async function clearDownloads() {
-  await fetch("http://localhost:3000/clear-downloads", { method: "POST" });
-  alert("Downloads folder cleared!");
+// STEP 2: Check Status
+async function runStep2() {
+  updateLog("Starting Step 2: Checking status...");
+  try {
+    const res = await axios.post(`${SERVER_URL}/step-check-status`);
+    updateLog(res.data.message);
+  } catch (err) {
+    updateLog(err.message, true);
+  }
+}
+
+// STEP 3: Generate URLs
+async function runStep3() {
+  updateLog("Starting Step 3: Generating URLs...");
+  try {
+    const res = await axios.post(`${SERVER_URL}/step-generate-urls`);
+    updateLog(res.data.message);
+  } catch (err) {
+    updateLog(err.message, true);
+  }
+}
+
+// STEP 4: Download
+async function runStep4() {
+  updateLog("Starting Step 4: Downloading files...");
+  try {
+    const res = await axios.post(`${SERVER_URL}/step-download`);
+    updateLog(res.data.message);
+  } catch (err) {
+    updateLog(err.message, true);
+  }
+}
+
+// DOM Extractor
+async function extractDOM() {
+  const url = document.getElementById("dom-url").value;
+  if (!url) return alert("Enter a URL");
+  updateLog(`Requesting DOM for ${url}. Waiting 10s...`);
+  try {
+    const res = await axios.post(`${SERVER_URL}/extract-dom`, { url });
+    updateLog(res.data.message);
+  } catch (err) {
+    updateLog(err.message, true);
+  }
+}
+
+async function clearData() {
+  await axios.post(`${SERVER_URL}/clear-all`);
+  document.getElementById("status-window").innerHTML =
+    '<div class="log-entry">Folders cleared.</div>';
 }

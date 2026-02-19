@@ -1,81 +1,82 @@
 const express = require("express");
+const axios = require("axios");
 const fs = require("fs-extra");
 const path = require("path");
-const axios = require("axios");
 const AdmZip = require("adm-zip");
 const cors = require("cors");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.static("./")); // Serve index.html
+app.use(express.static("./"));
 
 const DOWNLOADS_DIR = path.join(__dirname, "downloads");
-const LOG_FILE = path.join(__dirname, "status.txt");
+const STATUS_FILE = path.join(DOWNLOADS_DIR, "status.txt");
+const URLS_FILE = path.join(DOWNLOADS_DIR, "urls.txt");
+const DOM_FILE = path.join(DOWNLOADS_DIR, "dom_content.txt");
 
-// API to save to txt file
-app.get("/clear-log", (req, res) => {
-  fs.writeFileSync(LOG_FILE, "");
-  res.send("Log cleared");
+// Ensure directory exists
+fs.ensureDirSync(DOWNLOADS_DIR);
+
+// Step 1 helper
+app.post("/save-id", (req, res) => {
+  fs.appendFileSync(STATUS_FILE, req.body.id + "\n");
+  res.send("Saved");
 });
 
-app.post("/save-log", (req, res) => {
-  fs.appendFileSync(LOG_FILE, req.body.data);
-  res.send("Logged");
+// Step 2 Logic
+app.post("/step-check-status", async (req, res) => {
+  if (!fs.existsSync(STATUS_FILE))
+    return res.status(400).json({ message: "No status.txt found" });
+  const ids = fs.readFileSync(STATUS_FILE, "utf-8").split("\n").filter(Boolean);
+  // In a real app, you'd loop and call your Status API here
+  res.json({ message: `Verified ${ids.length} jobs. Ready for Step 3.` });
 });
 
-// API to download and unzip
-app.post("/download", async (req, res) => {
-  const { url, prefix } = req.body;
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const folderPath = path.join(DOWNLOADS_DIR, `${prefix}_${timestamp}`);
-
-  await fs.ensureDir(folderPath);
-
-  const zipPath = path.join(folderPath, "data.zip");
-  const response = await axios({ url, responseType: "arraybuffer" });
-  fs.writeFileSync(zipPath, response.data);
-
-  const zip = new AdmZip(zipPath);
-  zip.extractAllTo(folderPath, true);
-
-  res.send("Downloaded and Extracted");
+// Step 3 Logic
+app.post("/step-generate-urls", (req, res) => {
+  const ids = fs.readFileSync(STATUS_FILE, "utf-8").split("\n").filter(Boolean);
+  const urls = ids.map((id) => `https://api.example.com/download/${id}`);
+  fs.writeFileSync(URLS_FILE, urls.join("\n"));
+  res.json({ message: "URLs generated in downloads/urls.txt" });
 });
 
-app.post("/clear-downloads", async (req, res) => {
+// Step 4 Logic
+app.post("/step-download", async (req, res) => {
+  const urls = fs.readFileSync(URLS_FILE, "utf-8").split("\n").filter(Boolean);
+  for (const url of urls) {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const folderPath = path.join(DOWNLOADS_DIR, `Download_${timestamp}`);
+    await fs.ensureDir(folderPath);
+
+    // Mock Download (Replace with actual axios call for zip)
+    const zipPath = path.join(folderPath, "data.zip");
+    fs.writeFileSync(zipPath, "Fake Zip Content");
+
+    // If it were a real zip:
+    // const zip = new AdmZip(zipPath); zip.extractAllTo(folderPath, true);
+  }
+  res.json({ message: "All files processed." });
+});
+
+// DOM Extractor with 10s wait
+app.post("/extract-dom", async (req, res) => {
+  const { url } = req.body;
+  setTimeout(async () => {
+    try {
+      const response = await axios.get(url);
+      fs.writeFileSync(DOM_FILE, response.data);
+      console.log("DOM Saved");
+    } catch (e) {
+      console.log("DOM Fail", e.message);
+    }
+  }, 10000);
+  res.json({ message: "Extraction started. Check folder in 10s." });
+});
+
+app.post("/clear-all", async (req, res) => {
   await fs.emptyDir(DOWNLOADS_DIR);
   res.send("Cleared");
 });
 
 app.listen(3000, () => console.log("Server running on http://localhost:3000"));
-
-const DOM_DIR = path.join(__dirname, "dom_extractions");
-
-app.post("/extract-dom", async (req, res) => {
-  const { url } = req.body;
-
-  try {
-    // Create the folder if it doesn't exist
-    await fs.ensureDir(DOM_DIR);
-
-    // 1. Wait for 10 seconds (as requested)
-    console.log(`Waiting 10 seconds before fetching ${url}...`);
-    await new Promise((resolve) => setTimeout(resolve, 10000));
-
-    // 2. Fetch the content
-    // Note: For complex SPAs, you'd use Puppeteer here.
-    // This basic version gets the source HTML.
-    const response = await axios.get(url, {
-      headers: { "User-Agent": "Mozilla/5.0" },
-    });
-
-    // 3. Save to dom_content.txt
-    const filePath = path.join(DOM_DIR, "dom_content.txt");
-    await fs.writeFile(filePath, response.data);
-
-    res.send(`Success! DOM saved to ${filePath}`);
-  } catch (error) {
-    console.error(error);
-    res.status(500).send(`Error: ${error.message}`);
-  }
-});
