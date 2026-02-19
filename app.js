@@ -234,9 +234,6 @@ async function runStep4() {
   updateLog("Starting Step 4: Downloading files...");
   try {
     const response = await fetch(`${SERVER_URL}/api/download`);
-    const data = await response.json();
-    console.log("Server finished the job:", data.savedAt);
-    alert("File downloaded and unzipped on the server!");
   } catch (err) {
     updateLog(err.message, true);
   }

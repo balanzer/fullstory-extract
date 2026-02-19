@@ -83,9 +83,10 @@ app.get("/api/download", async (req, res) => {
     console.log("URLs to download:", urls);
     for (const url of urls) {
       const path = await downloadAndExtractGzip(url);
-      res.json({ status: "success", savedAt: path });
     }
+    res.json({ status: "success" });
   } catch (err) {
+    console.error("Download API error:", err.message);
     res.status(500).send(err.message);
   }
 });
