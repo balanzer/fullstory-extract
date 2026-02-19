@@ -4,9 +4,10 @@ const fs = require("fs-extra");
 const path = require("path");
 const AdmZip = require("adm-zip");
 const cors = require("cors");
+const zlib = require("zlib");
 
 const app = express();
-
+const SERVER_URL = "http://localhost:3010";
 app.use(
   cors({
     origin: "*",
@@ -20,11 +21,67 @@ app.use(express.static("./"));
 const DOWNLOADS_DIR = path.join(__dirname, "downloads");
 const STATUS_FILE = path.join(DOWNLOADS_DIR, "status.txt");
 const STATUS_EXPORT_FILE = path.join(DOWNLOADS_DIR, "status_export.txt");
+const STATUS_LOCATION_FILE = path.join(DOWNLOADS_DIR, "status_location.txt");
 const URLS_FILE = path.join(DOWNLOADS_DIR, "urls.txt");
 const DOM_FILE = path.join(DOWNLOADS_DIR, "dom_content.txt");
 
 // Ensure directory exists
 fs.ensureDirSync(DOWNLOADS_DIR);
+
+async function downloadAndExtractGzip(url) {
+  // 1. Generate the prefix: YYYY-MM-DD_HH-mm-ss
+  const now = new Date();
+  const timestamp = now
+    .toISOString()
+    .replace(/T/, "_")
+    .replace(/:/g, "-")
+    .split(".")[0];
+  const fileName = `${timestamp}_data.json`;
+  const outputPath = path.join(DOWNLOADS_DIR, "extract", fileName);
+
+  try {
+    console.log(`Starting download: ${fileName}..., Locaton: ${url}`);
+
+    const response = await axios({
+      method: "get",
+      url: url,
+      responseType: "stream", // Critical: handle data as a stream
+    });
+
+    // 2. Create the pipeline: Download -> Gunzip -> Write to File
+    const writer = fs.createWriteStream(outputPath);
+    const gunzip = zlib.createGunzip();
+
+    response.data
+      .pipe(gunzip) // Decompress the .gz chunk by chunk
+      .pipe(writer); // Save the extracted JSON chunk by chunk
+
+    return new Promise((resolve, reject) => {
+      writer.on("finish", () => {
+        console.log(`Successfully extracted to: ${outputPath}`);
+        resolve(outputPath);
+      });
+      writer.on("error", reject);
+    });
+  } catch (error) {
+    console.error("Extraction failed:", error.message);
+    throw error;
+  }
+}
+
+app.get("/api/download", async (req, res) => {
+  try {
+    const res = await axios.post(`${SERVER_URL}/get-location-urls`);
+    const urls = res.data.urls; // Array of IDs from status.txt
+    console.log("URLs to download:", urls);
+    for (const url of urls) {
+      const path = await downloadAndExtractGzip(url);
+      res.json({ status: "success", savedAt: path });
+    }
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
 
 // Step 1 helper
 app.post("/save-id", (req, res) => {
@@ -36,6 +93,12 @@ app.post("/save-id", (req, res) => {
 app.post("/save-export-id", (req, res) => {
   const content = `${req.body.id}`;
   fs.appendFileSync(STATUS_EXPORT_FILE, content + "\n");
+  res.send("Saved");
+});
+
+app.post("/save-location-urls", (req, res) => {
+  const content = `${req.body.url}`;
+  fs.appendFileSync(STATUS_LOCATION_FILE, content + "\n");
   res.send("Saved");
 });
 
@@ -55,6 +118,45 @@ app.post("/get-ids", (req, res) => {
     res.json({ ids });
   } catch (error) {
     console.error("Error reading status.txt:", error);
+    res.status(500).json({ error: "Could not read status file." });
+  }
+});
+app.post("/get-export-ids", (req, res) => {
+  try {
+    if (!fs.existsSync(STATUS_EXPORT_FILE)) {
+      return res.json({ ids: [] });
+    }
+
+    // Read the file, split by newline, and filter out any empty strings
+    const ids = fs
+      .readFileSync(STATUS_EXPORT_FILE, "utf-8")
+      .split("\n")
+      .map((id) => id.trim()) // Get only the ID part
+      .filter(Boolean);
+
+    res.json({ ids });
+  } catch (error) {
+    console.error("Error reading status_export.txt:", error);
+    res.status(500).json({ error: "Could not read status file." });
+  }
+});
+
+app.post("/get-location-urls", (req, res) => {
+  try {
+    if (!fs.existsSync(STATUS_LOCATION_FILE)) {
+      return res.json({ ids: [] });
+    }
+
+    // Read the file, split by newline, and filter out any empty strings
+    const urls = fs
+      .readFileSync(STATUS_LOCATION_FILE, "utf-8")
+      .split("\n")
+      .map((url) => url.trim()) // Get only the ID part
+      .filter(Boolean);
+
+    res.json({ urls });
+  } catch (error) {
+    console.error("Error reading status_location.txt:", error);
     res.status(500).json({ error: "Could not read status file." });
   }
 });

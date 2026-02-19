@@ -55,7 +55,7 @@ async function runStep1() {
   } catch (err) {
     updateLog(`Step 1 Error: ${err.message}`, true);
   }
-
+  return;
   updateLog("Starting Step 1b: Exporting events data...");
 
   for (const detail of eventDetails) {
@@ -183,8 +183,42 @@ async function runStep2() {
 async function runStep3() {
   updateLog("Starting Step 3: Generating URLs...");
   try {
-    const res = await axios.post(`${SERVER_URL}/step-generate-urls`);
-    updateLog(res.data.message);
+    const res = await axios.post(`${SERVER_URL}/get-export-ids`);
+    jobIDs = res.data.ids;
+    console.log("jobIDs:", jobIDs);
+    if (jobIDs.length === 0) {
+      updateLog("No jobs found to process.", "error");
+      return;
+    }
+
+    for (const jobId of jobIDs) {
+      try {
+        const url = `https://api.fullstory.com/search/v1/exports/${jobId}/results`;
+        const response = await axios.get(url, {
+          headers: {
+            Authorization: `Basic ${authToken}`,
+          },
+        });
+
+        const status = response.status;
+
+        const locationURL = response.data.location;
+
+        updateLog(
+          `Job: ${jobId} | HTTP: ${status} | locationURL: ${locationURL}%`,
+        );
+
+        // 3. If complete, mark for removal from pending list
+        if (!!locationURL) {
+          await axios.post(`${SERVER_URL}/save-location-urls`, {
+            url: locationURL,
+          });
+        }
+      } catch (err) {
+        updateLog(`Error checking Job ${jobId}: ${err.message}`, "error");
+        failedJobs.push(jobId); // Track failed jobs
+      }
+    }
   } catch (err) {
     updateLog(err.message, true);
   }
@@ -194,8 +228,10 @@ async function runStep3() {
 async function runStep4() {
   updateLog("Starting Step 4: Downloading files...");
   try {
-    const res = await axios.post(`${SERVER_URL}/step-download`);
-    updateLog(res.data.message);
+    const response = await fetch(`${SERVER_URL}/api/download`);
+    const data = await response.json();
+    console.log("Server finished the job:", data.savedAt);
+    alert("File downloaded and unzipped on the server!");
   } catch (err) {
     updateLog(err.message, true);
   }
