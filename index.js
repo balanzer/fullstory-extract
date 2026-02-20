@@ -228,69 +228,61 @@ app.listen(3010, () => console.log("Server running on http://localhost:3010"));
 
 const Papa = require("papaparse");
 
+// Replace your /analyze-csvs route with this version
 app.post("/analyze-csvs", async (req, res) => {
   const { folderPath } = req.body;
+  if (!fs.existsSync(folderPath)) return res.status(404).send("Path not found");
+
+  const files = fs.readdirSync(folderPath).filter((f) => f.endsWith(".csv"));
+  let combinedColumns = {};
 
   try {
-    if (!fs.existsSync(folderPath)) {
-      return res.status(404).send("Folder path does not exist.");
-    }
-
-    const files = fs
-      .readdirSync(folderPath)
-      .filter((file) => file.endsWith(".csv"));
-    if (files.length === 0) {
-      return res.status(400).send("No CSV files found.");
-    }
-
-    let combinedColumns = {}; // Key: Column Name, Value: { file: string, samples: Set }
-
     for (const file of files) {
       const filePath = path.join(folderPath, file);
-      const csvData = fs.readFileSync(filePath, "utf8");
 
-      const results = Papa.parse(csvData, {
-        header: true,
-        preview: 50, // Preview more rows to ensure we find 5 unique samples
-        skipEmptyLines: true,
-      });
+      // We use a Promise to wait for the stream to finish before moving to the next file
+      await new Promise((resolve, reject) => {
+        const stream = fs.createReadStream(filePath);
 
-      const headers = results.meta.fields;
+        Papa.parse(stream, {
+          header: true,
+          skipEmptyLines: true,
+          // 'step' is called for every single row
+          step: (results) => {
+            const row = results.data;
+            const headers = Object.keys(row);
+            console.log(
+              `Processing file ${file} with total headers: ${headers.length}`,
+            );
+            headers.forEach((header) => {
+              if (!combinedColumns[header]) {
+                combinedColumns[header] = { file: file, samples: new Set() };
+              }
 
-      headers.forEach((header) => {
-        // If column is new, initialize it with the current filename
-        if (!combinedColumns[header]) {
-          combinedColumns[header] = {
-            file: file,
-            samples: new Set(),
-          };
-        }
+              // Only add if we don't have 5 samples yet and value isn't empty
+              if (row[header] && combinedColumns[header].samples.size < 5) {
+                combinedColumns[header].samples.add(row[header]);
+              }
+            });
 
-        // Collect unique samples until we hit the limit of 5
-        for (const row of results.data) {
-          const val = row[header];
-          if (
-            val !== undefined &&
-            val !== null &&
-            val !== "" &&
-            combinedColumns[header].samples.size < 5
-          ) {
-            combinedColumns[header].samples.add(val);
-          }
-          if (combinedColumns[header].samples.size >= 5) break;
-        }
+            // Optimization: If ALL discovered columns have 5 samples, we could stop the stream
+            // but for simplicity, we'll let it finish or hit a row limit
+          },
+          complete: () => resolve(),
+          error: (err) => reject(err),
+        });
       });
     }
 
-    // Convert the object into a flat array for the frontend table
-    const finalOutput = Object.keys(combinedColumns).map((colName) => ({
-      fileName: combinedColumns[colName].file,
-      columnName: colName,
-      samples: Array.from(combinedColumns[colName].samples),
+    const output = Object.keys(combinedColumns).map((col) => ({
+      fileName: combinedColumns[col].file,
+      columnName: col,
+      samples: Array.from(combinedColumns[col].samples),
     }));
 
-    res.json(finalOutput);
+    res.json(output);
   } catch (error) {
-    res.status(500).send(error.message);
+    console.error("Streaming Error:", error);
+    res.status(500).send("Error processing large files: " + error.message);
   }
 });

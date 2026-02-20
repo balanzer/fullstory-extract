@@ -157,13 +157,13 @@
                 </thead>
                 <tbody>`;
 
-          data.forEach((item) => {
+          data.forEach((item, index) => {
             html += `
                 <tr style="border-bottom: 1px solid #eee;">
-                    <td style="padding: 10px; color: #666; font-family: monospace;">${item.fileName}</td>
+                    <td style="padding: 10px; color: #666; font-family: monospace;">${index + 1}</td>
                     <td style="padding: 10px; font-weight: bold;">${item.columnName}</td>
                     <td style="padding: 10px; color: #333;">
-                        ${item.samples.map((s) => `<span style="background: #e8f0fe; padding: 2px 6px; border-radius: 4px; margin-right: 5px; font-size: 0.9em;">${s}</span>`).join("")}
+                        ${item.samples.map((s) => `<span style="background: #e8f0fe; padding: 2px 6px; border-radius: 4px; margin-right: 5px; font-size: 0.9em;">${s}</span>`).join("<br>")}
                     </td>
                 </tr>`;
           });
