@@ -225,3 +225,72 @@ app.post("/clear-all", async (req, res) => {
 });
 
 app.listen(3010, () => console.log("Server running on http://localhost:3010"));
+
+const Papa = require("papaparse");
+
+app.post("/analyze-csvs", async (req, res) => {
+  const { folderPath } = req.body;
+
+  try {
+    if (!fs.existsSync(folderPath)) {
+      return res.status(404).send("Folder path does not exist.");
+    }
+
+    const files = fs
+      .readdirSync(folderPath)
+      .filter((file) => file.endsWith(".csv"));
+    if (files.length === 0) {
+      return res.status(400).send("No CSV files found.");
+    }
+
+    let combinedColumns = {}; // Key: Column Name, Value: { file: string, samples: Set }
+
+    for (const file of files) {
+      const filePath = path.join(folderPath, file);
+      const csvData = fs.readFileSync(filePath, "utf8");
+
+      const results = Papa.parse(csvData, {
+        header: true,
+        preview: 50, // Preview more rows to ensure we find 5 unique samples
+        skipEmptyLines: true,
+      });
+
+      const headers = results.meta.fields;
+
+      headers.forEach((header) => {
+        // If column is new, initialize it with the current filename
+        if (!combinedColumns[header]) {
+          combinedColumns[header] = {
+            file: file,
+            samples: new Set(),
+          };
+        }
+
+        // Collect unique samples until we hit the limit of 5
+        for (const row of results.data) {
+          const val = row[header];
+          if (
+            val !== undefined &&
+            val !== null &&
+            val !== "" &&
+            combinedColumns[header].samples.size < 5
+          ) {
+            combinedColumns[header].samples.add(val);
+          }
+          if (combinedColumns[header].samples.size >= 5) break;
+        }
+      });
+    }
+
+    // Convert the object into a flat array for the frontend table
+    const finalOutput = Object.keys(combinedColumns).map((colName) => ({
+      fileName: combinedColumns[colName].file,
+      columnName: colName,
+      samples: Array.from(combinedColumns[colName].samples),
+    }));
+
+    res.json(finalOutput);
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
