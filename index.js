@@ -239,7 +239,7 @@ app.post("/analyze-csvs", async (req, res) => {
   try {
     for (const file of files) {
       const filePath = path.join(folderPath, file);
-
+      let print = false;
       // We use a Promise to wait for the stream to finish before moving to the next file
       await new Promise((resolve, reject) => {
         const stream = fs.createReadStream(filePath);
@@ -251,21 +251,24 @@ app.post("/analyze-csvs", async (req, res) => {
           step: (results) => {
             const row = results.data;
             const headers = Object.keys(row);
-            console.log(
-              `Processing file ${file} with total headers: ${headers.length}`,
-            );
+            if (false == print) {
+              console.log(
+                `Processing file ${file} with total headers: ${headers.length}`,
+              );
+              print = true;
+            }
             headers.forEach((header) => {
               if (!combinedColumns[header]) {
                 combinedColumns[header] = { file: file, samples: new Set() };
               }
 
               // Only add if we don't have 5 samples yet and value isn't empty
-              if (row[header] && combinedColumns[header].samples.size < 5) {
+              if (row[header] && combinedColumns[header].samples.size < 20) {
                 combinedColumns[header].samples.add(row[header]);
               }
             });
 
-            // Optimization: If ALL discovered columns have 5 samples, we could stop the stream
+            // Optimization: If ALL discovered columns have 20 samples, we could stop the stream
             // but for simplicity, we'll let it finish or hit a row limit
           },
           complete: () => resolve(),
