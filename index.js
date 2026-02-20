@@ -239,6 +239,7 @@ app.post("/analyze-csvs", async (req, res) => {
   try {
     for (const file of files) {
       const filePath = path.join(folderPath, file);
+      console.log(`Processing file ${filePath} with streaming parser...`);
       let print = false;
       // We use a Promise to wait for the stream to finish before moving to the next file
       await new Promise((resolve, reject) => {
@@ -251,7 +252,7 @@ app.post("/analyze-csvs", async (req, res) => {
           step: (results) => {
             const row = results.data;
             const headers = Object.keys(row);
-            if (false == print) {
+            if (false === print) {
               console.log(
                 `Processing file ${file} with total headers: ${headers.length}`,
               );
